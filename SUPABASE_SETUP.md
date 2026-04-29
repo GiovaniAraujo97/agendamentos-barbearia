@@ -10,6 +10,7 @@ CREATE TABLE users (
   id UUID PRIMARY KEY,
   email VARCHAR NOT NULL UNIQUE,
   name VARCHAR NOT NULL,
+  phone VARCHAR,
   role VARCHAR NOT NULL DEFAULT 'client',
   salon_id UUID REFERENCES salons(id),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -87,6 +88,24 @@ CREATE TABLE appointments (
 );
 ```
 
+### Solicitações de Salão
+```sql
+CREATE TABLE salon_requests (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id),
+  owner_name VARCHAR NOT NULL,
+  owner_email VARCHAR NOT NULL,
+  owner_phone VARCHAR NOT NULL,
+  salon_name VARCHAR NOT NULL,
+  slug_requested VARCHAR NOT NULL,
+  city VARCHAR,
+  notes TEXT,
+  status VARCHAR NOT NULL DEFAULT 'pending',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
 ## Variáveis de Ambiente
 
 Crie um arquivo `.env.local` na raiz do projeto:
@@ -117,6 +136,7 @@ ALTER TABLE salons ENABLE ROW LEVEL SECURITY;
 ALTER TABLE services ENABLE ROW LEVEL SECURITY;
 ALTER TABLE professionals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE appointments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE salon_requests ENABLE ROW LEVEL SECURITY;
 ```
 
 ### Policies
@@ -133,6 +153,13 @@ CREATE POLICY "Salons can read their services" ON services
   FOR SELECT USING (
     EXISTS (SELECT 1 FROM salons WHERE salons.id = services.salon_id AND salons.owner_id = auth.uid())
   );
+
+-- Cliente pode ver e enviar a própria solicitação de salão
+CREATE POLICY "Users can read own salon requests" ON salon_requests
+  FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert own salon requests" ON salon_requests
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
 ```
 
 ## Próximas Etapas
@@ -141,3 +168,4 @@ CREATE POLICY "Salons can read their services" ON services
 2. Configurar RLS policies
 3. Adicionar as credenciais ao `.env.local`
 4. Testar autenticação e CRUD operations
+5. Aprovar manualmente solicitações em `salon_requests`, mudar o `role` para `owner` em `users` e criar o registro em `salons`

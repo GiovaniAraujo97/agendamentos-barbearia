@@ -2,8 +2,13 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
+import { Router } from '@angular/router';
 import { CalendarComponent } from '../../../shared/components/calendar.component';
 import { TimeSlotsComponent } from '../../../shared/components/time-slots.component';
+import { AgendaService } from '../services/agenda.service';
+import { SupabaseService } from '../../../core/services/supabase.service';
+import { ErrorTranslator } from '../../../core/utils/error-translator';
+import { formatPhoneBr } from '../../../core/utils/phone-formatter';
 
 interface Service {
   id: string;
@@ -50,6 +55,8 @@ interface Service {
           <div class="time-wrapper" *ngIf="selectedDate">
             <app-time-slots
               [selectedTime]="selectedTime"
+              [selectedDate]="selectedDate"
+              [blockedTimes]="blockedTimes"
               (timeSelected)="onTimeSelected($event)"
             ></app-time-slots>
           </div>
@@ -88,18 +95,11 @@ interface Service {
                 id="phone"
                 [(ngModel)]="appointmentData.clientPhone"
                 name="clientPhone"
+                maxlength="13"
+                placeholder="(11)9876-5432"
+                (input)="onClientPhoneInput()"
                 required
               />
-            </div>
-
-            <div class="form-group">
-              <label for="notes">Observações (opcional):</label>
-              <textarea
-                id="notes"
-                [(ngModel)]="appointmentData.notes"
-                name="notes"
-                rows="4"
-              ></textarea>
             </div>
 
             <div class="summary">
@@ -141,6 +141,7 @@ interface Service {
     .agenda-container {
       max-width: 1000px;
       margin: 0 auto;
+      min-width: 0;
     }
 
     .header-section {
@@ -287,8 +288,10 @@ interface Service {
     .summary-item {
       display: flex;
       justify-content: space-between;
+      align-items: flex-start;
       padding: 0.5rem 0;
       font-size: 0.95rem;
+      gap: 1rem;
     }
 
     .summary-item.total {
@@ -354,23 +357,62 @@ interface Service {
       .header-section h1 {
         font-size: 1.8rem;
       }
+
+      .services-section,
+      .form-section {
+        padding: 1.25rem;
+      }
+
+      .header-section {
+        margin-bottom: 2rem;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .header-section h1 {
+        font-size: 1.55rem;
+      }
+
+      .subtitle {
+        font-size: 0.95rem;
+      }
+
+      .services-section,
+      .form-section {
+        padding: 1rem;
+      }
+
+      .service-card {
+        padding: 1rem;
+      }
+
+      .summary {
+        padding: 1rem;
+      }
+
+      .summary-item,
+      .summary-item.total {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .btn-submit {
+        padding: 0.9rem;
+      }
     }
   `]
 })
 export class AgendaPage implements OnInit {
   salonName = 'Salão de Beleza';
-  services: Service[] = [
-    { id: '1', name: 'Corte Feminino', duration: 60, price: 80 },
-    { id: '2', name: 'Corte Masculino', duration: 30, price: 50 },
-    { id: '3', name: 'Manicure', duration: 45, price: 40 },
-    { id: '4', name: 'Pedicure', duration: 60, price: 50 },
-    { id: '5', name: 'Escova', duration: 90, price: 120 },
-    { id: '6', name: 'Coloração', duration: 120, price: 200 }
-  ];
+  services: Service[] = [];
+  salonId = '';
+  professionalId: string | null = null;
+  currentUserId: string | null = null;
 
   selectedService: Service | null = null;
   selectedDate: Date | null = null;
   selectedTime: string | null = null;
+  blockedTimes: string[] = [];
   loading = false;
   successMessage = '';
   errorMessage = '';
@@ -378,17 +420,69 @@ export class AgendaPage implements OnInit {
   appointmentData = {
     clientName: '',
     clientEmail: '',
-    clientPhone: '',
-    notes: ''
+    clientPhone: ''
   };
 
-  constructor(private route: ActivatedRoute) {}
+  constructor(
+    private route: ActivatedRoute,
+    private agendaService: AgendaService,
+    private supabaseService: SupabaseService,
+    private router: Router
+  ) {}
 
-  ngOnInit() {
-    this.route.params.subscribe(params => {
-      // TODO: Buscar dados do salão pelo slug
-      this.salonName = params['salonSlug']?.replace('-', ' ') || 'Salão';
+  async ngOnInit() {
+    const authUser = await this.supabaseService.getCurrentUser();
+    this.currentUserId = authUser?.id || null;
+
+    if (authUser) {
+      this.appointmentData.clientEmail = authUser.email || '';
+      this.appointmentData.clientName = authUser.user_metadata?.['name'] || '';
+      this.appointmentData.clientPhone = formatPhoneBr(authUser.user_metadata?.['phone'] || '');
+
+      try {
+        const { data } = await this.supabaseService.query('users', { id: authUser.id });
+        if (data && data.length > 0) {
+          this.appointmentData.clientName = data[0].name || this.appointmentData.clientName;
+          this.appointmentData.clientEmail = data[0].email || this.appointmentData.clientEmail;
+          this.appointmentData.clientPhone = formatPhoneBr(data[0].phone || this.appointmentData.clientPhone);
+        }
+      } catch {
+        // Mantem dados vindos do auth metadata se o perfil nao tiver phone.
+      }
+    }
+
+    this.route.params.subscribe(async params => {
+      const salonSlug = params['salonSlug'];
+      await this.loadSalonData(salonSlug);
     });
+  }
+
+  private async loadSalonData(salonSlug: string): Promise<void> {
+    this.errorMessage = '';
+
+    try {
+      const salon = await this.agendaService.getSalonBySlug(salonSlug);
+
+      if (!salon) {
+        this.errorMessage = 'Salão não encontrado.';
+        return;
+      }
+
+      this.salonId = salon.id;
+      this.salonName = salon.name;
+      this.services = await this.agendaService.getServicesPublic(this.salonId);
+      this.professionalId = await this.agendaService.getDefaultProfessionalId(this.salonId);
+
+      if (this.services.length === 0) {
+        this.errorMessage = 'Nenhum serviço disponível para este salão.';
+      }
+
+      if (!this.professionalId) {
+        this.errorMessage = 'Nenhum profissional ativo disponível para agendamento.';
+      }
+    } catch (error) {
+      this.errorMessage = 'Não foi possível carregar os dados do salão.';
+    }
   }
 
   selectService(service: Service) {
@@ -397,13 +491,28 @@ export class AgendaPage implements OnInit {
     this.selectedTime = null;
   }
 
-  onDateSelected(date: Date) {
+  async onDateSelected(date: Date) {
     this.selectedDate = date;
     this.selectedTime = null;
+    this.blockedTimes = [];
+
+    if (!this.salonId || !this.professionalId) {
+      return;
+    }
+
+    this.blockedTimes = await this.agendaService.getBlockedTimes(
+      this.salonId,
+      this.professionalId,
+      this.toIsoDate(date)
+    );
   }
 
   onTimeSelected(time: string) {
     this.selectedTime = time;
+  }
+
+  onClientPhoneInput(): void {
+    this.appointmentData.clientPhone = formatPhoneBr(this.appointmentData.clientPhone);
   }
 
   async submitAppointment() {
@@ -417,25 +526,39 @@ export class AgendaPage implements OnInit {
     this.errorMessage = '';
 
     try {
-      // TODO: Integrar com AgendaService e Supabase
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
+      if (!this.salonId || !this.selectedDate || !this.selectedTime || !this.selectedService || !this.professionalId || !this.currentUserId) {
+        this.errorMessage = 'Dados do agendamento inválidos. Atualize a página e tente novamente.';
+        return;
+      }
+
+      const [hours, minutes] = this.selectedTime.split(':').map(Number);
+      const startDate = new Date(this.selectedDate);
+      startDate.setHours(hours, minutes, 0, 0);
+
+      if (startDate <= new Date()) {
+        this.errorMessage = 'Selecione um horário futuro para agendar.';
+        return;
+      }
+
+      const endDate = new Date(startDate.getTime() + this.selectedService.duration * 60000);
+
+      await this.agendaService.criarAgendamento(this.salonId, {
+        clientId: this.currentUserId,
+        clientName: this.appointmentData.clientName,
+        clientEmail: this.appointmentData.clientEmail,
+        clientPhone: this.appointmentData.clientPhone,
+        serviceId: this.selectedService.id,
+        professionalId: this.professionalId,
+        startTime: this.toLocalDateTime(startDate),
+        endTime: this.toLocalDateTime(endDate)
+      });
+
       this.successMessage = 'Agendamento realizado com sucesso! Você receberá uma confirmação por email.';
-      
-      // Limpar formulário
       setTimeout(() => {
-        this.selectedService = null;
-        this.selectedDate = null;
-        this.selectedTime = null;
-        this.appointmentData = {
-          clientName: '',
-          clientEmail: '',
-          clientPhone: '',
-          notes: ''
-        };
-      }, 2000);
-    } catch (error) {
-      this.errorMessage = 'Erro ao agendar. Tente novamente.';
+        this.router.navigate(['/cliente/meus-agendamentos']);
+      }, 900);
+    } catch (error: any) {
+      this.errorMessage = ErrorTranslator.translate(error);
     } finally {
       this.loading = false;
     }
@@ -446,10 +569,30 @@ export class AgendaPage implements OnInit {
       this.appointmentData.clientName.trim() !== '' &&
       this.appointmentData.clientEmail.includes('@') &&
       this.appointmentData.clientPhone.trim() !== '' &&
+      this.salonId !== '' &&
+      this.currentUserId !== null &&
+      this.professionalId !== null &&
       this.selectedService !== null &&
       this.selectedDate !== null &&
       this.selectedTime !== null
     );
+  }
+
+  private toIsoDate(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  private toLocalDateTime(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
   }
 }
 

@@ -23,6 +23,11 @@ html, body {
   color: var(--text-main);
   background: radial-gradient(circle at top right, #102441 0%, var(--bg-main) 55%);
   line-height: 1.6;
+  overflow-x: hidden;
+}
+
+body {
+  min-width: 320px;
 }
 
 /* Typography */
@@ -126,5 +131,26 @@ button {
 
   h2 {
     font-size: 1.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  body {
+    font-size: 13px;
+  }
+
+  h1 {
+    font-size: 1.55rem;
+  }
+
+  h2 {
+    font-size: 1.3rem;
+  }
+
+  input,
+  textarea,
+  select,
+  button {
+    font-size: 16px;
   }
 }

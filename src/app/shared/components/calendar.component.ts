@@ -8,7 +8,7 @@ import { CommonModule } from '@angular/common';
   template: `
     <div class="calendar">
       <div class="calendar-header">
-        <button (click)="previousMonth()" class="nav-btn">←</button>
+        <button (click)="previousMonth()" class="nav-btn" [disabled]="isCurrentMonth()">←</button>
         <h2>{{ monthYear }}</h2>
         <button (click)="nextMonth()" class="nav-btn">→</button>
       </div>
@@ -24,6 +24,7 @@ import { CommonModule } from '@angular/common';
           [class.selected]="isSelected(day)"
           [class.today]="isToday(day)"
           [class.available]="isAvailable(day)"
+          [class.inactive]="!isAvailable(day)"
           (click)="selectDate(day)"
           class="date"
         >
@@ -67,6 +68,12 @@ import { CommonModule } from '@angular/common';
 
     .nav-btn:hover {
       background: #245b93;
+    }
+
+    .nav-btn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      background: #173f69;
     }
 
     .weekdays {
@@ -116,6 +123,14 @@ import { CommonModule } from '@angular/common';
       border-color: #5ec7ff;
     }
 
+    .date.inactive {
+      background: #0a121e;
+      border-color: #1a2a3d;
+      color: #4f6478;
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+
     .date.today {
       background: #1d4f80;
       color: #eaf6ff;
@@ -126,6 +141,44 @@ import { CommonModule } from '@angular/common';
       background: #7ad6ff;
       color: #04101f;
       border-color: #7ad6ff;
+    }
+
+    @media (max-width: 768px) {
+      .calendar {
+        padding: 1rem;
+      }
+
+      .calendar-header {
+        margin-bottom: 1rem;
+      }
+
+      .calendar-header h2 {
+        font-size: 1.05rem;
+        min-width: 0;
+        flex: 1;
+      }
+
+      .nav-btn {
+        padding: 0.45rem 0.75rem;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .weekdays,
+      .dates {
+        gap: 0.25rem;
+      }
+
+      .weekday {
+        padding: 0.25rem 0;
+        font-size: 0.72rem;
+      }
+
+      .date,
+      .empty {
+        font-size: 0.82rem;
+        border-width: 1px;
+      }
     }
   `]
 })
@@ -158,6 +211,10 @@ export class CalendarComponent {
   }
 
   previousMonth() {
+    if (this.isCurrentMonth()) {
+      return;
+    }
+
     this.currentDate.setMonth(this.currentDate.getMonth() - 1);
     this.currentDate = new Date(this.currentDate);
     this.updateCalendar();
@@ -200,5 +257,13 @@ export class CalendarComponent {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     return date >= today;
+  }
+
+  isCurrentMonth(): boolean {
+    const today = new Date();
+    return (
+      this.currentDate.getMonth() === today.getMonth() &&
+      this.currentDate.getFullYear() === today.getFullYear()
+    );
   }
 }

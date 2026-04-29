@@ -16,11 +16,12 @@ export interface Appointment {
 }
 
 export interface CreateAppointmentDTO {
+  clientId: string;
   clientName: string;
   clientEmail: string;
   clientPhone: string;
   serviceId: string;
   professionalId: string;
   startTime: string;
-  notes?: string;
+  endTime: string;
 }

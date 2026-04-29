@@ -16,6 +16,10 @@ export const routes: Routes = [
         path: 'auth',
         children: [
           {
+            path: 'acesso-negado',
+            loadComponent: () => import('./features/auth/pages/acesso-negado.page').then(m => m.AcessoNegadoPage)
+          },
+          {
             path: 'login',
             loadComponent: () => import('./features/auth/pages/login.page').then(m => m.LoginPage)
           },
@@ -28,7 +32,13 @@ export const routes: Routes = [
       // Agenda Pública (Cliente)
       {
         path: 'agenda',
+        canActivate: [authGuard],
         children: [
+          {
+            path: '',
+            redirectTo: 'giovani-barbearia',
+            pathMatch: 'full'
+          },
           {
             path: ':salonSlug',
             loadComponent: () => import('./features/agenda-publica/pages/agenda.page').then(m => m.AgendaPage)
@@ -63,6 +73,10 @@ export const routes: Routes = [
         path: 'cliente',
         canActivate: [authGuard],
         children: [
+          {
+            path: 'solicitar-salao',
+            loadComponent: () => import('./features/cliente/pages/solicitar-salao.page').then(m => m.SolicitarSalaoPage)
+          },
           {
             path: 'meus-agendamentos',
             loadComponent: () => import('./features/cliente/pages/meus-agendamentos.page').then(m => m.MeusAgendamentosPage)

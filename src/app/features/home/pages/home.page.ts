@@ -13,8 +13,8 @@ import { RouterLink } from '@angular/router';
           <h1>Sistema de Agendamento para Salões</h1>
           <p>Gerencie seus agendamentos de forma simples e eficiente</p>
           <div class="hero-actions">
-            <a routerLink="/agenda" class="btn btn-primary">Agendar Agora</a>
-            <a routerLink="/auth/login" class="btn btn-secondary">Painel do Salão</a>
+            <a routerLink="/agenda/giovani-barbearia" class="btn btn-primary">Agendar Agora</a>
+            <a routerLink="/cliente/solicitar-salao" class="btn btn-secondary">Cadastrar meu salão</a>
           </div>
         </div>
         <div class="hero-image">
@@ -84,6 +84,7 @@ import { RouterLink } from '@angular/router';
   styles: [`
     .home {
       width: 100%;
+      overflow: hidden;
     }
 
     .hero {
@@ -94,10 +95,16 @@ import { RouterLink } from '@angular/router';
       padding: 4rem 0;
     }
 
+    .hero-content,
+    .hero-image {
+      min-width: 0;
+    }
+
     .hero-content h1 {
       font-size: 2.5rem;
       color: #eaf6ff;
       margin-bottom: 1rem;
+      text-wrap: balance;
     }
 
     .hero-content p {
@@ -121,6 +128,7 @@ import { RouterLink } from '@angular/router';
       display: inline-block;
       text-align: center;
       border: 2px solid transparent;
+      min-width: 180px;
     }
 
     .btn-primary {
@@ -285,10 +293,24 @@ import { RouterLink } from '@angular/router';
       .hero {
         grid-template-columns: 1fr;
         padding: 2rem 0;
+        gap: 2rem;
       }
 
       .hero-content h1 {
         font-size: 2rem;
+        text-align: center;
+      }
+
+      .hero-content p {
+        text-align: center;
+      }
+
+      .hero-actions {
+        flex-direction: column;
+      }
+
+      .btn {
+        width: 100%;
       }
 
       .hero-icon {
@@ -300,10 +322,39 @@ import { RouterLink } from '@angular/router';
         padding: 2rem;
       }
 
+      .feature-card,
+      .step {
+        padding: 1.25rem;
+      }
+
       .features h2,
       .how-it-works h2,
       .cta h2 {
         font-size: 1.5rem;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .hero {
+        padding: 1.25rem 0 2rem;
+      }
+
+      .hero-content h1 {
+        font-size: 1.75rem;
+      }
+
+      .hero-content p,
+      .cta p {
+        font-size: 1rem;
+      }
+
+      .features,
+      .cta {
+        padding: 1.25rem;
+      }
+
+      .hero-icon {
+        font-size: 4rem;
       }
     }
   `]

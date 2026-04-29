@@ -20,10 +20,16 @@ export class SupabaseService {
   }
 
   // Autenticação
-  async signUp(email: string, password: string) {
+  async signUp(email: string, password: string, metadata?: { name?: string; phone?: string }) {
     return await this.supabase.auth.signUp({
       email,
-      password
+      password,
+      options: {
+        data: {
+          name: metadata?.name,
+          phone: metadata?.phone
+        }
+      }
     });
   }
 

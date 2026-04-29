@@ -5,21 +5,14 @@ import { Router } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
 import { SupabaseService } from '../../../core/services/supabase.service';
 import { ErrorTranslator } from '../../../core/utils/error-translator';
-import { AuthLoadingOverlayComponent } from '../../../shared/components/auth-loading-overlay.component';
 
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [CommonModule, FormsModule, AuthLoadingOverlayComponent],
+  imports: [CommonModule, FormsModule],
   template: `
     <div class="login-container">
       <div class="login-card">
-        <app-auth-loading-overlay
-          *ngIf="entering"
-          [title]="'Abrindo sua cadeira'"
-          [subtitle]="enteringMessage"
-        />
-
         <h1>Login</h1>
         <form (ngSubmit)="onLogin()">
           <div class="form-group">
@@ -35,10 +28,7 @@ import { AuthLoadingOverlayComponent } from '../../../shared/components/auth-loa
           </button>
         </form>
         <p *ngIf="error" class="error-message">{{ error }}</p>
-        <p class="signup-row">
-          <span>Não tem conta?</span>
-          <a (click)="goToSignup()">Cadastre-se</a>
-        </p>
+        <p>Não tem conta? <a (click)="goToSignup()">Cadastre-se</a></p>
       </div>
     </div>
   `,
@@ -47,65 +37,28 @@ import { AuthLoadingOverlayComponent } from '../../../shared/components/auth-loa
       display: flex;
       justify-content: center;
       align-items: center;
-      width: 100%;
-      min-height: calc(100vh - 220px);
-      padding: 0.75rem 1rem;
+      min-height: 100vh;
+      padding: 1rem;
     }
 
     .login-card {
       background: #0b1422;
-      padding: 2.2rem;
-      border: none;
-      border-radius: 14px;
-      width: min(100%, 460px);
+      padding: 2rem;
+      border: 1px solid #22344a;
+      border-radius: 8px;
+      width: min(100%, 380px);
       box-shadow: 0 10px 24px rgba(0, 0, 0, 0.3);
-      display: grid;
-      gap: 1rem;
     }
 
     h1 {
       color: #eaf6ff;
-      margin: 0;
-      font-size: 1.9rem;
-      line-height: 1.1;
-    }
-
-    form {
-      display: grid;
-      gap: 0.95rem;
-    }
-
-    .form-group {
-      display: grid;
-      gap: 0.45rem;
-    }
-
-    label {
-      color: #cde3f5;
-      font-size: 0.95rem;
-    }
-
-    input {
-      width: 100%;
-      min-height: 44px;
-      padding: 0.72rem 0.82rem;
-      border-radius: 8px;
-      border: 1px solid #294865;
-      background: #08101b;
-      color: #eaf6ff;
-      font-size: 0.98rem;
-    }
-
-    input:focus {
-      outline: none;
-      border-color: #5ec7ff;
-      box-shadow: 0 0 0 3px rgba(94, 199, 255, 0.2);
+      margin-bottom: 1rem;
     }
 
     button {
       width: 100%;
-      margin-top: 0.2rem;
-      padding: 0.85rem;
+      margin-top: 0.5rem;
+      padding: 0.75rem;
       border: none;
       border-radius: 6px;
       background: linear-gradient(135deg, #112844 0%, #5ec7ff 100%);
@@ -114,16 +67,8 @@ import { AuthLoadingOverlayComponent } from '../../../shared/components/auth-loa
     }
 
     p {
-      margin: 0;
+      margin-top: 1rem;
       color: #9cb5c9;
-    }
-
-    .signup-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 1rem;
-      margin-top: 0.25rem;
     }
 
     a {
@@ -137,7 +82,7 @@ import { AuthLoadingOverlayComponent } from '../../../shared/components/auth-loa
     }
 
     .error-message {
-      margin-top: 0.25rem;
+      margin-top: 1rem;
       background: #3a1520;
       border: 1px solid #a34b63;
       color: #ffc4d3;
@@ -145,31 +90,9 @@ import { AuthLoadingOverlayComponent } from '../../../shared/components/auth-loa
       border-radius: 6px;
     }
 
-    @media (max-width: 768px) {
-      .login-container {
-        min-height: calc(100vh - 180px);
-        padding: 0.5rem 0.9rem;
-      }
-
-      .login-card {
-        width: 100%;
-        max-width: 520px;
-        padding: 1.6rem;
-      }
-    }
-
     @media (max-width: 480px) {
       .login-card {
-        padding: 1.2rem;
-        gap: 0.9rem;
-      }
-
-      h1 {
-        font-size: 1.65rem;
-      }
-
-      .signup-row {
-        gap: 0.8rem;
+        padding: 1.25rem;
       }
     }
   `]
@@ -178,8 +101,6 @@ export class LoginPage implements OnInit {
   email = '';
   password = '';
   loading = false;
-  entering = false;
-  enteringMessage = 'Conferindo seu acesso e preparando a agenda.';
   error = '';
 
   constructor(
@@ -197,31 +118,18 @@ export class LoginPage implements OnInit {
     this.error = '';
 
     try {
-      const normalizedEmail = this.email.trim().toLowerCase();
-
       await this.authService.signIn({
-        email: normalizedEmail,
+        email: this.email,
         password: this.password
       });
 
-      this.entering = true;
-
       const role = this.authService.getUserRole();
-      if (role === 'owner' || role === 'professional') {
-        this.enteringMessage = 'Separando os compromissos do dia e abrindo o painel.';
-      } else {
-        this.enteringMessage = 'Buscando seus horarios e carregando seus agendamentos.';
-      }
-
-      await this.waitForEntranceAnimation();
-
       if (role === 'owner' || role === 'professional') {
         this.router.navigate(['/painel/dashboard']);
       } else {
         this.router.navigate(['/cliente/meus-agendamentos']);
       }
     } catch (err: any) {
-      this.entering = false;
       this.error = ErrorTranslator.translate(err);
     } finally {
       this.loading = false;
@@ -246,11 +154,5 @@ export class LoginPage implements OnInit {
     } else {
       this.router.navigate(['/cliente/meus-agendamentos']);
     }
-  }
-
-  private waitForEntranceAnimation(): Promise<void> {
-    return new Promise(resolve => {
-      setTimeout(resolve, 850);
-    });
   }
 }
